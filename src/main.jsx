@@ -2,49 +2,83 @@ import React,{useEffect,useMemo,useState}from"react";
 import{createRoot}from"react-dom/client";
 import"./styles.css";
 
-const C=["#ff3b5c","#3385ff","#24d477","#ffb020"],N=["RED","BLUE","GREEN","YELLOW"];
-const PIECES=[{name:"QUEEN",symbol:"♛"},{name:"ROOK",symbol:"♜"},{name:"BISHOP",symbol:"♝"},{name:"KNIGHT",symbol:"♞"}];
-const START=[0,7,56,63],TARGET=[63,56,7,0];
-
-const mk=()=>{let d=[];for(const c of["red","blue","green","yellow"]){for(let n=1;n<10;n++)for(let i=0;i<2;i++)d.push({type:"number",value:n,color:c});d.push({type:"skip",value:"SKIP",color:c},{type:"reverse",value:"↻",color:c},{type:"+2",value:"+2",color:c})}for(let i=0;i<4;i++)d.push({type:"+4",value:"+4",color:"wild"});return d};
-const sh=a=>{a=[...a];for(let i=a.length-1;i;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
-const rc=i=>[Math.floor(i/8),i%8],idx=(r,c)=>r*8+c;
-
-function legalMoves(piece,from,occupied){
- const [r,c]=rc(from),out=[];
- const add=(rr,cc)=>{if(rr<0||rr>7||cc<0||cc>7)return false;const q=idx(rr,cc);if(occupied.has(q))return false;out.push(q);return true};
- const slide=(dr,dc)=>{let rr=r+dr,cc=c+dc;while(rr>=0&&rr<8&&cc>=0&&cc<8){const q=idx(rr,cc);if(occupied.has(q))break;out.push(q);rr+=dr;cc+=dc}};
- if(piece==="KNIGHT")[[1,2],[1,-2],[-1,2],[-1,-2],[2,1],[2,-1],[-2,1],[-2,-1]].forEach(([a,b])=>add(r+a,c+b));
- if(piece==="KING")for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++)if(a||b)add(r+a,c+b);
- if(piece==="ROOK")[[1,0],[-1,0],[0,1],[0,-1]].forEach(x=>slide(...x));
- if(piece==="BISHOP")[[1,1],[1,-1],[-1,1],[-1,-1]].forEach(x=>slide(...x));
- if(piece==="QUEEN")[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]].forEach(x=>slide(...x));
- return out;
+const COLORS={white:"#eef4ff",black:"#111827"};
+const BACK=["red","yellow","green","blue"];
+const PIECES={
+ king:{symbol:"♚",name:"King"},queen:{symbol:"♛",name:"Queen"},rook:{symbol:"♜",name:"Rook"},
+ bishop:{symbol:"♝",name:"Bishop"},knight:{symbol:"♞",name:"Knight"},pawn:{symbol:"♟",name:"Pawn"}
+};
+const back=[["rook","knight","bishop","queen","king","bishop","knight","rook"],Array(8).fill("pawn")];
+const makePieces=()=>[...back.flatMap((row,r)=>row.map((type,c)=>({type,color:0,row:r,col:c,home:r*8+c}))),...back.flatMap((row,r)=>row.map((type,c)=>({type,color:1,row:7-r,col:c,home:(7-r)*8+c})))];
+const initialBoard=()=>{const b=Array(64).fill(null);makePieces().forEach(p=>b[p.home]=p);return b};
+const rc=i=>[Math.floor(i/8),i%8],ix=(r,c)=>r*8+c;
+const inside=(r,c)=>r>=0&&r<8&&c>=0&&c<8;
+const ray=(board,from,dr,dc,color)=>{const out=[];let[r,c]=rc(from);for(r+=dr,c+=dc;inside(r,c);r+=dr,c+=dc){const to=ix(r,c),q=board[to];if(!q)out.push(to);else{if(q.color!==color)out.push(to);break}}return out};
+function movesFor(board,from){
+ const p=board[from];if(!p)return[];const[r,c]=rc(from),o=[];
+ if(p.type==="pawn"){const d=p.color===0?-1:1,start=p.color===0?6:1;let to=ix(r+d,c);if(inside(r+d,c)&&!board[to]){o.push(to);const two=ix(r+2*d,c);if(r===start&&!board[two])o.push(two)}for(const dc of[-1,1]){const rr=r+d,cc=c+dc;if(inside(rr,cc)&&board[ix(rr,cc)]&&board[ix(rr,cc)].color!==p.color)o.push(ix(rr,cc))}}
+ if(p.type==="knight")[[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]].forEach(([dr,dc])=>{const rr=r+dr,cc=c+dc;if(inside(rr,cc)&&(!board[ix(rr,cc)]||board[ix(rr,cc)].color!==p.color))o.push(ix(rr,cc))});
+ if(p.type==="king")for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)if((dr||dc)&&inside(r+dr,c+dc)&&(!board[ix(r+dr,c+dc)]||board[ix(r+dr,c+dc)].color!==p.color))o.push(ix(r+dr,c+dc));
+ if(p.type==="rook"||p.type==="queen")[[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr,dc])=>o.push(...ray(board,from,dr,dc,p.color)));
+ if(p.type==="bishop"||p.type==="queen")[[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([dr,dc])=>o.push(...ray(board,from,dr,dc,p.color)));
+ return o;
 }
+const shuffle=a=>{const x=[...a];for(let i=x.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[x[i],x[j]]=[x[j],x[i]]}return x};
+const makeDeck=()=>shuffle([...BACK.flatMap(color=>[...Array(2)].flatMap(()=>[1,2,3,4,5,6,7,8,9].map(value=>({type:"number",value,color})).concat([{type:"skip",value:"SKIP",color},{type:"reverse",value:"↔",color},{type:"draw2",value:"+2",color}]))),...Array(4).fill(0).map(()=>({type:"draw4",value:"+4",color:"wild"}))]);
 
 function App(){
- const[p,setP]=useState(4),[pos,setPos]=useState(START),[alive,setAlive]=useState([true,true,true,true]),[turn,setTurn]=useState(0),[dir,setDir]=useState(1),[deck,setDeck]=useState(()=>sh(mk())),[discard,setDiscard]=useState([]),[card,setCard]=useState(),[moves,setMoves]=useState(0),[winner,setWinner]=useState(null),[selected,setSelected]=useState(null),[log,setLog]=useState(["Welcome to UNO Chess. Draw a card!"]),[anim,setAnim]=useState(null);
- const active=useMemo(()=>Array.from({length:p},(_,i)=>i),[p]);
- const occupied=useMemo(()=>new Map(pos.map((x,i)=>[x,i]).filter(([_,i])=>alive[i])),[pos,alive]);
- const legal=useMemo(()=>moves&&alive[turn]?legalMoves(PIECES[turn].name,pos[turn],new Set([...occupied.keys()].filter(x=>x!==pos[turn]))):[],[moves,turn,pos,occupied,alive]);
- const lg=x=>setLog(l=>[x,...l].slice(0,6));
- const reset=()=>{setPos(START.slice());setAlive([true,true,true,true]);setTurn(0);setDir(1);setDeck(sh(mk()));setDiscard([]);setCard();setMoves(0);setWinner(null);setSelected(null);setAnim(null);setLog(["New game started. Draw a card!"])};
- const next=(skip=false)=>{let t=turn;for(let i=0;i<p;i++){t=(t+dir*(skip?2:1)+p*8)%p;if(alive[t])break}setTurn(t);setCard();setMoves(0);setSelected(null)};
- const draw=()=>{if(moves||winner!==null)return;let d=deck;if(!d.length){d=sh(discard);setDiscard([])}const c=d[0];setDeck(d.slice(1));setDiscard(x=>[c,...x]);setCard(c);
-   if(c.type==="number"){setMoves(c.value);lg(N[turn]+" drew "+c.value+": "+c.value+" chess moves available.")}
-   else if(c.type==="skip"){lg(N[turn]+" drew SKIP.");setTimeout(()=>next(true),500)}
-   else if(c.type==="reverse"){setDir(x=>-x);lg(N[turn]+" drew REVERSE. Direction flipped.");setTimeout(next,600)}
-   else{setPos(START.slice());setAlive([true,true,true,true].map((_,i)=>i<p));setMoves(0);lg(N[turn]+" drew "+c.type+": all pieces revived at their starts!");setTimeout(next,750)}
+ const[board,setBoard]=useState(initialBoard),[turn,setTurn]=useState(0),[deck,setDeck]=useState(makeDeck),[discard,setDiscard]=useState([]),[card,setCard]=useState(null),[moves,setMoves]=useState(0),[selected,setSelected]=useState(null),[winner,setWinner]=useState(null),[log,setLog]=useState(["Draw a number card to get your chess moves."]),[flipped,setFlipped]=useState(false),[lastMove,setLastMove]=useState(null);
+ const legal=useMemo(()=>selected!==null?movesFor(board,selected):[],[board,selected]);
+ const addLog=m=>setLog(x=>[m,...x].slice(0,5));
+ const reset=()=>{setBoard(initialBoard());setTurn(0);setDeck(makeDeck());setDiscard([]);setCard(null);setMoves(0);setSelected(null);setWinner(null);setFlipped(false);setLastMove(null);setLog(["New game started. Draw a card."])};
+ const nextTurn=()=>{setTurn(t=>1-t);setMoves(0);setCard(null);setSelected(null);setLastMove(null)};
+ const draw=()=>{
+   if(moves||winner!==null)return;
+   let d=deck;if(!d.length)d=shuffle(discard.slice(0,-1));
+   if(!d.length)return;
+   const c=d[0];setDeck(d.slice(1));setDiscard(x=>[c,...x]);setCard(c);
+   if(c.type==="number"){setMoves(c.value);addLog(`Player ${turn+1} drew ${c.value} — ${c.value} chess moves.`)}
+   else if(c.type==="skip"){addLog(`Player ${turn+1} played SKIP.`);setTimeout(nextTurn,450)}
+   else if(c.type==="reverse"){setFlipped(x=>!x);addLog(`Player ${turn+1} played REVERSE — board flipped.`);setTimeout(nextTurn,500)}
+   else {const n=c.type==="draw2"?2:4;let revived=0;setBoard(b=>{const z=[...b];for(let i=0;i<64&&revived<n;i++){if(!z[i])continue}return z});addLog(`Player ${turn+1} played ${c.value} — revive power ready.`);setMoves(n)}
  };
- const move=to=>{if(!moves||winner!==null||!legal.includes(to))return;const from=pos[turn];setSelected(to);setAnim({p:turn});setTimeout(()=>{setPos(q=>{let z=[...q];const victim=Array.from(occupied.entries()).find(([sq,who])=>sq===to&&who!==turn);if(victim){const [,who]=victim;z[who]=-1;setAlive(a=>a.map((v,i)=>i===who?false:v));}z[turn]=to;return z});setMoves(m=>m-1);setAnim(null);if(to===TARGET[turn]){setWinner(turn);lg("🏆 "+N[turn]+" reached the finish!")}else if(moves-1===0)setTimeout(next,350);},220)};
- useEffect(()=>{const f=e=>{if(e.code==="Space")draw()};addEventListener("keydown",f);return()=>removeEventListener("keydown",f)},[moves,winner,turn,deck,discard]);
- return <div className="app"><header><div className="logo"><span>UNO</span><b>CHESS</b><small>CARD-POWERED CHESS BATTLE</small></div><button className="new" onClick={reset}>↻ NEW GAME</button></header>
- <main><section><div className="hud"><div className="pill"><i style={{background:C[turn]}}/>{N[turn]}'S TURN · {PIECES[turn].symbol} {PIECES[turn].name}</div><div className="pill">DIRECTION <b>{dir===1?"→":"←"}</b></div><label className="pill">PLAYERS <select value={p} onChange={e=>{const n=+e.target.value;setP(n);setPos(START.slice());setAlive([true,true,true,true].map((_,i)=>i<n));setTurn(0);setMoves(0);setCard();}}><option>2</option><option>3</option><option>4</option></select></label></div>
- <div className="board">{Array.from({length:64},(_,i)=>{let r=Math.floor(i/8),c=Math.floor(i%8),who=occupied.get(i),isLegal=legal.includes(i);return <button key={i} className={"sq "+((r+c)%2?"dark":"light")+" "+(i===TARGET[turn]?"target ":"")+(isLegal?"legal ":"")+(selected===i?"selected":"")} onClick={()=>isLegal&&move(i)}>{i===TARGET[turn]&&<span className="flag">★</span>}{who!==undefined&&<div className={"piece "+(anim?.p===who?"moving":"")} style={{"--c":C[who]}}><span>{PIECES[who].symbol}</span><small>{who+1}</small></div>}</button>})}</div>
- <div className="players">{active.map(x=><div className={(turn===x?"player active":"player")+" "+(!alive[x]?"dead":"")}><i style={{background:C[x]}}/><b>{N[x]} · {PIECES[x].symbol}</b><small>{alive[x]?"POS "+(pos[x]+1):"CAPTURED"}</small></div>)}</div></section>
- <aside><div className="panel"><h3>CURRENT CARD</h3><div className={"card "+(card?.color||"wild")+" "+(card?"show":"")}><strong>{card?card.value:"?"}</strong><small>{card?(card.type==="number"?card.value+" CHESS MOVES":card.type):"DRAW"}</small></div><button className="draw" disabled={moves>0||winner!==null} onClick={draw}>DRAW CARD</button></div>
- <div className="panel"><h3>YOUR MOVES</h3><div className="moves">{moves}<small>CHESS MOVES LEFT</small></div><p className="hint">{moves?"Select a highlighted square for your next legal chess move.":"Draw a number card to get moves."}</p></div>
- <div className="panel rules"><h3>UNO POWERS</h3><p><b>1–9</b> Number = that many chess moves</p><p><b>SKIP</b> Skip current turn</p><p><b>↻</b> Reverse direction</p><p><b>+2 / +4</b> Revive all pieces at start</p><p><b>♛♜♝♞</b> Real chess movement rules</p></div><div className="panel"><h3>BATTLE LOG</h3>{log.map(x=><p className="log">{x}</p>)}</div></aside></main>
- {winner!==null&&<div className="winner"><div><div className="stars">✦ ✦ ✦</div><div className="winpiece">{PIECES[winner].symbol}</div><h1>{N[winner]} WINS!</h1><p>Reached the opposite corner.</p><button onClick={reset}>PLAY AGAIN</button></div></div>}</div>
+ const revivePower=()=>{
+   if(!card||!["draw2","draw4"].includes(card.type)||!moves)return;
+   const n=card.type==="draw2"?2:4;let left=n;
+   setBoard(b=>{const z=[...b];for(let home=0;home<64&&left;home++){const r=Math.floor(home/8),c=home%8;const original=makePieces().find(p=>p.home===home);if(!original||z[home])continue;if(z.some(p=>p&&p.color===original.color&&p.type===original.type&&p.home===home))continue;z[home]=original;left--}return z});
+   addLog(`Player ${turn+1} revived up to ${n} pieces at home.`);setMoves(0);setTimeout(nextTurn,350);
+ };
+ const move=(to)=>{
+   if(!moves||selected===null||!legal.includes(to)||winner!==null)return;
+   const from=selected,p=board[from],captured=board[to];
+   const z=[...board];z[to]={...p};z[from]=null;
+   if(p.type==="pawn"&&((p.color===0&&Math.floor(to/8)===0)||(p.color===1&&Math.floor(to/8)===7))){z[to]={...z[to],type:"queen"};addLog(`Player ${turn+1} promoted a pawn to a queen.`)}
+   setBoard(z);setLastMove([from,to]);setSelected(null);setMoves(m=>m-1);
+   if(captured?.type==="king"){setWinner(turn);addLog(`🏆 Player ${turn+1} captured the king!`);return}
+   addLog(`Player ${turn+1} moved the ${PIECES[p.type].name}.`);
+   if(moves-1===0)setTimeout(nextTurn,300);
+ };
+ useEffect(()=>{const f=e=>{if(e.code==="Space")draw()};window.addEventListener("keydown",f);return()=>window.removeEventListener("keydown",f)},[moves,winner,deck,discard,turn]);
+ const squares=Array.from({length:64},(_,i)=>i);
+ return <div className="app">
+  <header><div className="brand"><div><span>UNO</span><b>CHESS</b></div><small>CARD-POWERED CHESS BATTLE</small></div><div className="top-actions"><button onClick={()=>setFlipped(x=>!x)}>↻ FLIP BOARD</button><button onClick={reset}>NEW GAME</button></div></header>
+  <div className="game">
+   <section className="board-wrap">
+    <div className="playerbar p2"><div className="avatar black">♚</div><div><b>PLAYER 2</b><small>BLACK</small></div><div className="dots"><i/><i/><i/><i/></div></div>
+    <div className="board-frame"><div className="coords top">{["a","b","c","d","e","f","g","h"].map(x=><span>{x}</span>)}</div><div className="board">{squares.map(i=>{const j=flipped?63-i:i,[r,c]=rc(j),p=board[j],can=legal.includes(j),isSel=selected===j,last=lastMove?.includes(j);return <button key={i} className={`sq ${(r+c)%2?"dark":"light"} ${can?"legal":""} ${isSel?"selected":""} ${last?"last":""}`} onClick={()=>{if(moves){if(p?.color===turn)setSelected(j);else if(can)move(j)}}}>{p&&<span className={`chess-piece ${p.color===0?"white-piece":"black-piece"}`}>{PIECES[p.type].symbol}</span>}{can&&<span className="move-dot"/>}</button>})}</div><div className="coords bottom">{["a","b","c","d","e","f","g","h"].map(x=><span>{x}</span>)}</div></div>
+    <div className="playerbar p1"><div className="avatar white">♔</div><div><b>PLAYER 1</b><small>WHITE</small></div><div className="dots"><i/><i/><i/><i/></div></div>
+   </section>
+   <aside>
+    <div className="turn-panel"><small>CURRENT TURN</small><div className="turn"><div className={`turn-avatar ${turn?"black":"white"}`}>{turn?"♚":"♔"}</div><div><b>PLAYER {turn+1}</b><span>{turn?"BLACK":"WHITE"}</span></div></div><hr/><small>MOVES LEFT</small><strong className="move-count">{moves}</strong></div>
+    <div className={`uno-card ${card?.color||"blue"} ${card?"visible":""}`}><b>{card?.value||"?"}</b><span>{card?card.type==="number"?`NEXT MOVE · ${card.value} CHESS MOVES`:card.type.toUpperCase():"DRAW CARD"}</span></div>
+    <button className="draw-btn" disabled={!!moves||winner!==null} onClick={draw}>DRAW CARD <kbd>SPACE</kbd></button>
+    {card?.type==="draw2"||card?.type==="draw4"?<button className="power-btn" onClick={revivePower}>{card.value} · REVIVE PIECES</button>:null}
+    <div className="powers"><div><b className="skip">↪</b><span><strong>SKIP</strong>Skip opponent's turn</span></div><div><b className="reverse">↔</b><span><strong>REVERSE</strong>Flip board / change direction</span></div><div><b className="plus2">+2</b><span><strong>+2</strong>Revive 2 pieces at home</span></div><div><b className="plus4">+4</b><span><strong>+4</strong>Revive 4 pieces at home</span></div></div>
+    <div className="rules"><b>HOW TO PLAY</b><p>Number card = number of <strong>chess moves</strong>.</p><p>Select one of your pieces, then a highlighted legal square.</p><p>Capture the opponent king to win.</p></div>
+    <div className="log"><b>BATTLE LOG</b>{log.map(x=><p>{x}</p>)}</div>
+   </aside>
+  </div>
+  {winner!==null&&<div className="winner"><div><div className="crown">♛</div><h1>PLAYER {winner+1} WINS!</h1><p>The king has been captured.</p><button onClick={reset}>PLAY AGAIN</button></div></div>}
+ </div>
 }
 createRoot(document.getElementById("root")).render(<App/>);
