@@ -24,7 +24,7 @@ function movesFor(board,from){
  return o;
 }
 const shuffle=a=>{const x=[...a];for(let i=x.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[x[i],x[j]]=[x[j],x[i]]}return x};
-const makeDeck=()=>{const numbers=shuffle([...Array(9)].map((_,i)=>({type:"number",value:i+1,color:BACK[i%4]}));const specials=shuffle([...BACK.flatMap(color=>[{type:"skip",value:"SKIP",color},{type:"reverse",value:"↔",color},{type:"draw2",value:"+2",color}]),...Array(4).fill(0).map(()=>({type:"draw4",value:"+4",color:"wild"}))]);return [...numbers,...specials]};
+const makeDeck=()=>{const numbers=shuffle([...Array(9)].map((_,i)=>({type:"number",value:i+1,color:BACK[i%4]})));const specials=shuffle([...BACK.flatMap(color=>[{type:"skip",value:"SKIP",color},{type:"reverse",value:"↔",color},{type:"draw2",value:"+2",color}]),...Array(4).fill(0).map(()=>({type:"draw4",value:"+4",color:"wild"}))]);return [...numbers,...specials]};
 
 function App(){
  const[board,setBoard]=useState(initialBoard),[turn,setTurn]=useState(0),[deck,setDeck]=useState(makeDeck),[discard,setDiscard]=useState([]),[card,setCard]=useState(null),[moves,setMoves]=useState(0),[selected,setSelected]=useState(null),[winner,setWinner]=useState(null),[log,setLog]=useState(["Draw a number card to get your chess moves."]),[flipped,setFlipped]=useState(false),[lastMove,setLastMove]=useState(null);
