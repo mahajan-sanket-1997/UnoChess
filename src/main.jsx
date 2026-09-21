@@ -12,7 +12,7 @@ const shuffle=a=>{const x=[...a];for(let i=x.length-1;i>0;i--){const j=Math.floo
 
 function pseudoMoves(board,from,attacksOnly=false){
  const p=board[from];if(!p)return[];const[r,c]=rc(from),o=[];const add=to=>{const q=board[to];if(!q||q.color!==p.color)o.push(to)};
- if(p.type==="pawn"){const d=p.color===0?-1:1;if(attacksOnly){for(const dc of[-1,1]){const rr=r+d,cc=c+dc;if(inside(rr,cc))o.push(ix(rr,cc))}}else{const one=r+d,start=p.color===0?6:1;if(inside(one,c)&&!board[ix(one,c)]){o.push(ix(one,c));const two=r+d*2;if(r===start&&inside(two,c)&&!board[ix(two,c)])o.push(ix(two,c))}for(const dc of[-1,1]){const rr=r+d,cc=c+dc;if(inside(rr,cc)){const q=board[ix(rr,cc)];if(q&&q.color!==p.color&&q.type!=="king")o.push(ix(rr,cc))}}}}
+ if(p.type==="pawn"){const d=(p.color===player1Color?1:-1);if(attacksOnly){for(const dc of[-1,1]){const rr=r+d,cc=c+dc;if(inside(rr,cc))o.push(ix(rr,cc))}}else{const one=r+d,start=p.color===0?6:1;if(inside(one,c)&&!board[ix(one,c)]){o.push(ix(one,c));const two=r+d*2;if(r===start&&inside(two,c)&&!board[ix(two,c)])o.push(ix(two,c))}for(const dc of[-1,1]){const rr=r+d,cc=c+dc;if(inside(rr,cc)){const q=board[ix(rr,cc)];if(q&&q.color!==p.color&&q.type!=="king")o.push(ix(rr,cc))}}}}
  if(p.type==="knight")[[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]].forEach(([dr,dc])=>{const rr=r+dr,cc=c+dc;if(inside(rr,cc))add(ix(rr,cc))});
  if(p.type==="king")for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)if((dr||dc)&&inside(r+dr,c+dc)){const to=ix(r+dr,c+dc);if(attacksOnly)o.push(to);else add(to)}
  const ray=(dr,dc)=>{let rr=r+dr,cc=c+dc;while(inside(rr,cc)){const to=ix(rr,cc),q=board[to];if(!q)o.push(to);else{if(q.color!==p.color)o.push(to);break}rr+=dr;cc+=dc}};
