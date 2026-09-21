@@ -24,7 +24,7 @@ function movesFor(board,from){
  return o;
 }
 const shuffle=a=>{const x=[...a];for(let i=x.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[x[i],x[j]]=[x[j],x[i]]}return x};
-const makeDeck=()=>shuffle([...BACK.flatMap(color=>[...Array(2)].flatMap(()=>[1,2,3,4,5,6,7,8,9].map(value=>({type:"number",value,color})).concat([{type:"skip",value:"SKIP",color},{type:"reverse",value:"↔",color},{type:"draw2",value:"+2",color}]))),...Array(4).fill(0).map(()=>({type:"draw4",value:"+4",color:"wild"}))]);
+const makeDeck=()=>{const numbers=shuffle([...Array(9)].map((_,i)=>({type:"number",value:i+1,color:BACK[i%4]}));const specials=shuffle([...BACK.flatMap(color=>[{type:"skip",value:"SKIP",color},{type:"reverse",value:"↔",color},{type:"draw2",value:"+2",color}]),...Array(4).fill(0).map(()=>({type:"draw4",value:"+4",color:"wild"}))]);return [...numbers,...specials]};
 
 function App(){
  const[board,setBoard]=useState(initialBoard),[turn,setTurn]=useState(0),[deck,setDeck]=useState(makeDeck),[discard,setDiscard]=useState([]),[card,setCard]=useState(null),[moves,setMoves]=useState(0),[selected,setSelected]=useState(null),[winner,setWinner]=useState(null),[log,setLog]=useState(["Draw a number card to get your chess moves."]),[flipped,setFlipped]=useState(false),[lastMove,setLastMove]=useState(null);
@@ -65,14 +65,14 @@ function App(){
   <div className="game">
    <section className="board-wrap">
     <div className="playerbar p2"><div className="avatar black">♚</div><div><b>PLAYER 2</b><small>BLACK</small></div><div className="dots"><i/><i/><i/><i/></div></div>
-    <div className="board-frame"><div className="coords top">{["a","b","c","d","e","f","g","h"].map(x=><span>{x}</span>)}</div><div className="board">{squares.map(i=>{const j=flipped?63-i:i,[r,c]=rc(j),p=board[j],can=legal.includes(j),isSel=selected===j,last=lastMove?.includes(j);return <button key={i} className={`sq ${(r+c)%2?"dark":"light"} ${can?"legal":""} ${isSel?"selected":""} ${last?"last":""}`} onClick={()=>{if(moves){if(p?.color===turn)setSelected(j);else if(can)move(j)}}}>{p&&<span className={`chess-piece ${p.color===0?"white-piece":"black-piece"}`}>{PIECES[p.type].symbol}</span>}{can&&<span className="move-dot"/>}</button>})}</div><div className="coords bottom">{["a","b","c","d","e","f","g","h"].map(x=><span>{x}</span>)}</div></div>
+    <div className="board-frame"><div className="coords top">{["a","b","c","d","e","f","g","h"].map(x=><span>{x}</span>)}</div><div className="board">{squares.map(i=>{const j=flipped?63-i:i,[r,c]=rc(j),p=board[j],can=legal.includes(j),isSel=selected===j,last=lastMove?.includes(j);return <button key={i} className={`sq ${(r+c)%2?"dark":"light"} ${can?"legal":""} ${isSel?"selected":""} ${last?"last":""}`} onClick={()=>{if(p?.color===turn){setSelected(j);return}if(moves&&can)move(j)}}>{p&&<span className={`chess-piece ${p.color===0?"white-piece":"black-piece"}`}>{PIECES[p.type].symbol}</span>}{can&&<span className="move-dot"/>}</button>})}</div><div className="coords bottom">{["a","b","c","d","e","f","g","h"].map(x=><span>{x}</span>)}</div></div>
     <div className="playerbar p1"><div className="avatar white">♔</div><div><b>PLAYER 1</b><small>WHITE</small></div><div className="dots"><i/><i/><i/><i/></div></div>
    </section>
    <aside>
     <div className="turn-panel"><small>CURRENT TURN</small><div className="turn"><div className={`turn-avatar ${turn?"black":"white"}`}>{turn?"♚":"♔"}</div><div><b>PLAYER {turn+1}</b><span>{turn?"BLACK":"WHITE"}</span></div></div><hr/><small>MOVES LEFT</small><strong className="move-count">{moves}</strong></div>
     <div className={`uno-card ${card?.color||"blue"} ${card?"visible":""}`}><b>{card?.value||"?"}</b><span>{card?card.type==="number"?`NEXT MOVE · ${card.value} CHESS MOVES`:card.type.toUpperCase():"DRAW CARD"}</span></div>
     <button className="draw-btn" disabled={!!moves||winner!==null} onClick={draw}>DRAW CARD <kbd>SPACE</kbd></button>
-    {card?.type==="draw2"||card?.type==="draw4"?<button className="power-btn" onClick={revivePower}>{card.value} · REVIVE PIECES</button>:null}
+    {card?.type==="draw2"||card?.type==="draw4"?<button className="power-btn" onClick={revivePower}>{card.value} · REVIVE PIECES</button>:null}<div className="move-help">{moves?<>Select a highlighted piece destination. <strong>{moves} move{moves===1?"":"s"} left.</strong></>:<>Draw a card first. Number cards unlock chess moves.</>}</div>
     <div className="powers"><div><b className="skip">↪</b><span><strong>SKIP</strong>Skip opponent's turn</span></div><div><b className="reverse">↔</b><span><strong>REVERSE</strong>Flip board / change direction</span></div><div><b className="plus2">+2</b><span><strong>+2</strong>Revive 2 pieces at home</span></div><div><b className="plus4">+4</b><span><strong>+4</strong>Revive 4 pieces at home</span></div></div>
     <div className="rules"><b>HOW TO PLAY</b><p>Number card = number of <strong>chess moves</strong>.</p><p>Select one of your pieces, then a highlighted legal square.</p><p>Capture the opponent king to win.</p></div>
     <div className="log"><b>BATTLE LOG</b>{log.map(x=><p>{x}</p>)}</div>
