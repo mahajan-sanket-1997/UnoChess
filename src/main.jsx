@@ -9,7 +9,11 @@ const PIECES={
  bishop:{symbol:"♝",name:"Bishop"},knight:{symbol:"♞",name:"Knight"},pawn:{symbol:"♟",name:"Pawn"}
 };
 const back=[["rook","knight","bishop","queen","king","bishop","knight","rook"],Array(8).fill("pawn")];
-const makePieces=()=>[...back.flatMap((row,r)=>row.map((type,c)=>({type,color:0,row:r,col:c,home:r*8+c}))),...back.flatMap((row,r)=>row.map((type,c)=>({type,color:1,row:7-r,col:c,home:(7-r)*8+c})))];
+// Standard chess orientation: Player 1 / White starts at the bottom.
+const makePieces=()=>[
+ ...back.flatMap((row,r)=>row.map((type,c)=>({type,color:1,row:r,col:c,home:r*8+c}))),
+ ...back.flatMap((row,r)=>row.map((type,c)=>({type,color:0,row:7-r,col:c,home:(7-r)*8+c})))
+];
 const initialBoard=()=>{const b=Array(64).fill(null);makePieces().forEach(p=>b[p.home]=p);return b};
 const rc=i=>[Math.floor(i/8),i%8],ix=(r,c)=>r*8+c;
 const inside=(r,c)=>r>=0&&r<8&&c>=0&&c<8;
