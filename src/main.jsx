@@ -16,7 +16,25 @@ const inside=(r,c)=>r>=0&&r<8&&c>=0&&c<8;
 const ray=(board,from,dr,dc,color)=>{const out=[];let[r,c]=rc(from);for(r+=dr,c+=dc;inside(r,c);r+=dr,c+=dc){const to=ix(r,c),q=board[to];if(!q)out.push(to);else{if(q.color!==color)out.push(to);break}}return out};
 function movesFor(board,from){
  const p=board[from];if(!p)return[];const[r,c]=rc(from),o=[];
- if(p.type==="pawn"){const d=p.color===0?-1:1,start=p.color===0?6:1;let to=ix(r+d,c);if(inside(r+d,c)&&!board[to]){o.push(to);const two=ix(r+2*d,c);if(r===start&&!board[two])o.push(two)}for(const dc of[-1,1]){const rr=r+d,cc=c+dc;if(inside(rr,cc)&&board[ix(rr,cc)]&&board[ix(rr,cc)].color!==p.color)o.push(ix(rr,cc))}}
+ // Pawns always move toward the opponent: White (player 1) goes up the board,
+ // Black (player 2) goes down the board. They never move backward.
+ if(p.type==="pawn"){
+   const direction=p.color===0?-1:1;
+   const startRow=p.color===0?6:1;
+   const oneRow=r+direction;
+   if(inside(oneRow,c)&&!board[ix(oneRow,c)]){
+     o.push(ix(oneRow,c));
+     const twoRow=r+direction*2;
+     if(r===startRow&&inside(twoRow,c)&&!board[ix(twoRow,c)])o.push(ix(twoRow,c));
+   }
+   for(const dc of[-1,1]){
+     const captureRow=r+direction, captureCol=c+dc;
+     if(inside(captureRow,captureCol)){
+       const target=board[ix(captureRow,captureCol)];
+       if(target&&target.color!==p.color&&target.type!=="king")o.push(ix(captureRow,captureCol));
+     }
+   }
+ }
  if(p.type==="knight")[[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]].forEach(([dr,dc])=>{const rr=r+dr,cc=c+dc;if(inside(rr,cc)&&(!board[ix(rr,cc)]||board[ix(rr,cc)].color!==p.color))o.push(ix(rr,cc))});
  if(p.type==="king")for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)if((dr||dc)&&inside(r+dr,c+dc)&&(!board[ix(r+dr,c+dc)]||board[ix(r+dr,c+dc)].color!==p.color))o.push(ix(r+dr,c+dc));
  if(p.type==="rook"||p.type==="queen")[[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr,dc])=>o.push(...ray(board,from,dr,dc,p.color)));
@@ -28,7 +46,7 @@ const makeDeck=()=>{const numbers=shuffle([...Array(9)].map((_,i)=>({type:"numbe
 
 function App(){
  const[board,setBoard]=useState(initialBoard),[turn,setTurn]=useState(0),[deck,setDeck]=useState(makeDeck),[discard,setDiscard]=useState([]),[card,setCard]=useState(null),[moves,setMoves]=useState(0),[selected,setSelected]=useState(null),[winner,setWinner]=useState(null),[log,setLog]=useState(["Draw a number card to get your chess moves."]),[flipped,setFlipped]=useState(false),[lastMove,setLastMove]=useState(null);
- const legal=useMemo(()=>selected!==null?movesFor(board,selected):[],[board,selected]);
+ const legal=useMemo(()=>selected!==null&&board[selected]?.color===turn?movesFor(board,selected):[],[board,selected,turn]);
  const addLog=m=>setLog(x=>[m,...x].slice(0,5));
  const reset=()=>{setBoard(initialBoard());setTurn(0);setDeck(makeDeck());setDiscard([]);setCard(null);setMoves(0);setSelected(null);setWinner(null);setFlipped(false);setLastMove(null);setLog(["New game started. Draw a card."])};
  const nextTurn=()=>{setTurn(t=>1-t);setMoves(0);setCard(null);setSelected(null);setLastMove(null)};
@@ -65,7 +83,7 @@ function App(){
   <div className="game">
    <section className="board-wrap">
     <div className="playerbar p2"><div className="avatar black">♚</div><div><b>PLAYER 2</b><small>BLACK</small></div><div className="dots"><i/><i/><i/><i/></div></div>
-    <div className="board-frame"><div className="coords top">{["a","b","c","d","e","f","g","h"].map(x=><span>{x}</span>)}</div><div className="board">{squares.map(i=>{const j=flipped?63-i:i,[r,c]=rc(j),p=board[j],can=legal.includes(j),isSel=selected===j,last=lastMove?.includes(j);return <button key={i} className={`sq ${(r+c)%2?"dark":"light"} ${can?"legal":""} ${isSel?"selected":""} ${last?"last":""}`} onClick={()=>{if(p?.color===turn){setSelected(j);return}if(moves&&can)move(j)}}>{p&&<span className={`chess-piece ${p.color===0?"white-piece":"black-piece"}`}>{PIECES[p.type].symbol}</span>}{can&&<span className="move-dot"/>}</button>})}</div><div className="coords bottom">{["a","b","c","d","e","f","g","h"].map(x=><span>{x}</span>)}</div></div>
+    <div className="board-frame"><div className="coords top">{["a","b","c","d","e","f","g","h"].map(x=><span>{x}</span>)}</div><div className="board">{squares.map(i=>{const j=flipped?63-i:i,[r,c]=rc(j),p=board[j],can=legal.includes(j),isSel=selected===j,last=lastMove?.includes(j);return <button key={i} className={`sq ${(r+c)%2?"dark":"light"} ${can?"legal":""} ${isSel?"selected":""} ${last?"last":""}`} onClick={()=>{if(p?.color===turn){setSelected(j);return}if(moves&&selected!==null&&can)move(j)}}>{p&&<span className={`chess-piece ${p.color===0?"white-piece":"black-piece"}`}>{PIECES[p.type].symbol}</span>}{can&&<span className="move-dot"/>}</button>})}</div><div className="coords bottom">{["a","b","c","d","e","f","g","h"].map(x=><span>{x}</span>)}</div></div>
     <div className="playerbar p1"><div className="avatar white">♔</div><div><b>PLAYER 1</b><small>WHITE</small></div><div className="dots"><i/><i/><i/><i/></div></div>
    </section>
    <aside>
@@ -74,7 +92,7 @@ function App(){
     <button className="draw-btn" disabled={!!moves||winner!==null} onClick={draw}>DRAW CARD <kbd>SPACE</kbd></button>
     {card?.type==="draw2"||card?.type==="draw4"?<button className="power-btn" onClick={revivePower}>{card.value} · REVIVE PIECES</button>:null}<div className="move-help">{moves?<>Select a highlighted piece destination. <strong>{moves} move{moves===1?"":"s"} left.</strong></>:<>Draw a card first. Number cards unlock chess moves.</>}</div>
     <div className="powers"><div><b className="skip">↪</b><span><strong>SKIP</strong>Skip opponent's turn</span></div><div><b className="reverse">↔</b><span><strong>REVERSE</strong>Flip board / change direction</span></div><div><b className="plus2">+2</b><span><strong>+2</strong>Revive 2 pieces at home</span></div><div><b className="plus4">+4</b><span><strong>+4</strong>Revive 4 pieces at home</span></div></div>
-    <div className="rules"><b>HOW TO PLAY</b><p>Number card = number of <strong>chess moves</strong>.</p><p>Select one of your pieces, then a highlighted legal square.</p><p>Capture the opponent king to win.</p></div>
+    <div className="rules"><b>HOW TO PLAY</b><p>Number card = number of <strong>chess moves</strong>.</p><p>Select one of your pieces, then a highlighted legal square.</p><p>White pawns move toward row 1; black pawns move toward row 8. Pawns never move backward.</p><p>Capture the opponent king to win.</p></div>
     <div className="log"><b>BATTLE LOG</b>{log.map(x=><p>{x}</p>)}</div>
    </aside>
   </div>
